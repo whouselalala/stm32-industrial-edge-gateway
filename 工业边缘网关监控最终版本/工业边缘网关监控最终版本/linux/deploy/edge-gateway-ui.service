@@ -1,0 +1,12 @@
+[Unit]
+Description=Local industrial edge gateway dashboard
+After=edge-gateway.service
+
+[Service]
+User=edge-gateway
+EnvironmentFile=/etc/edge-gateway.conf
+ExecStart=/usr/bin/python3 /usr/local/share/edge-gateway/server.py ${GATEWAY_DATABASE}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=Industrial edge gateway (Modbus RTU and MQTT)
+After=network.target
+
+[Service]
+Type=notify
+WatchdogSec=20s
+User=edge-gateway
+SupplementaryGroups=dialout
+StateDirectory=edge-gateway
+WorkingDirectory=/var/lib/edge-gateway
+EnvironmentFile=/etc/edge-gateway.conf
+ExecStart=/usr/local/bin/edge-gateway ${GATEWAY_SERIAL}
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

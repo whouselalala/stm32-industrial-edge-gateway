@@ -1,0 +1,8 @@
+# 串口建议使用 /dev/serial/by-id/ 下的稳定设备名。
+GATEWAY_SERIAL=/dev/ttyUSB0
+GATEWAY_DATABASE=/var/lib/edge-gateway/gateway.sqlite3
+GATEWAY_MQTT_HOST=bemfa.com
+GATEWAY_MQTT_PORT=9501
+GATEWAY_MQTT_TOPIC=stm32
+# 在本机 /etc/edge-gateway.conf 填入自己的巴法云私钥。
+GATEWAY_MQTT_CLIENT_ID=

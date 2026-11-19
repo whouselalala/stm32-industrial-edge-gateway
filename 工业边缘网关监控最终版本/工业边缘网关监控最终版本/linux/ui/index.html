@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>边缘网关监控</title>
+<style>
+:root {color-scheme:dark; font:16px/1.5 system-ui,sans-serif; background:#0c1620; color:#edf5fb}
+body {margin:0}
+main {max-width:780px; margin:auto; padding:30px 18px}
+header {display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px}
+h1 {font-size:1.65rem; margin:0}
+h2 {font-size:1.05rem; margin:0 0 10px}
+nav {display:flex; gap:8px}
+button {color:inherit; background:#203645; border:1px solid #38576a; border-radius:6px; padding:8px 13px; cursor:pointer; font:inherit}
+button[aria-selected=true] {background:#17604f; border-color:#438d7d}
+.grid {display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0}
+article, .panel {background:#142532; border:1px solid #294452; border-radius:8px; padding:14px}
+output {display:block; font-size:1.65rem; font-weight:650; font-variant-numeric:tabular-nums}
+small {color:#b7cfdd}
+.status {display:flex; flex-wrap:wrap; gap:12px 24px}
+#logs {list-style:none; padding:0; margin:0}
+#logs li {border-bottom:1px solid #294452; padding:8px 0; overflow-wrap:anywhere}
+#sleep {position:fixed; inset:0; width:100%; height:100%; background:#000; color:#aaa; border:0}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>边缘网关监控</h1>
+    <nav aria-label="页面">
+      <button id="main-tab" aria-selected="true">监控</button>
+      <button id="log-tab" aria-selected="false">日志</button>
+    </nav>
+  </header>
+  <section id="monitor">
+    <div class="grid">
+      <article><h2>温度</h2><output id="temperature">—</output><small id="temperature-status">温湿度从站</small></article>
+      <article><h2>湿度</h2><output id="humidity">—</output></article>
+      <article><h2>光照</h2><output id="light">—</output><small id="light-status">光照从站</small></article>
+    </div>
+    <div class="panel status">
+      <span id="mqtt">MQTT 等待连接</span><span id="uptime">运行 —</span>
+      <span id="updated">等待采样</span><span id="pending">待发送 —</span>
+    </div>
+  </section>
+  <section id="log-panel" class="panel" hidden>
+    <h2>系统运行日志</h2>
+    <ul id="logs"></ul>
+  </section>
+</main>
+<button id="sleep" hidden>点击唤醒</button>
+<script>
+const byId = (id) => document.getElementById(id);
+const set = (id, value) => { byId(id).textContent = value; };
+const sleep = byId('sleep');
+let lastActivity = Date.now(), lastSample = null;
+
+function wake() {
+  lastActivity = Date.now();
+  sleep.hidden = true;
+}
+document.addEventListener('pointerdown', wake);
+document.addEventListener('keydown', wake);
+sleep.addEventListener('click', wake);
+byId('main-tab').onclick = () => showLogs(false);
+byId('log-tab').onclick = () => showLogs(true);
+
+function showLogs(visible) {
+  byId('log-panel').hidden = !visible;
+  byId('monitor').hidden = visible;
+  byId('main-tab').setAttribute('aria-selected', !visible);
+  byId('log-tab').setAttribute('aria-selected', visible);
+}
+
+function value(reading, digits, unit) {
+  return reading == null ? '—' : reading.toFixed(digits) + ' ' + unit;
+}
+
+function duration(seconds) {
+  const pieces = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60];
+  return pieces.map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+async function refresh() {
+  try {
+    const response = await fetch('/api/status', {signal: AbortSignal.timeout(2000)});
+    if (!response.ok) throw new Error('database unavailable');
+    const {state, logs, pending} = await response.json();
+    if ((state.temperature_online || state.light_online) && state.updated_at !== lastSample) wake();
+    lastSample = state.updated_at;
+    set('temperature', value(state.temperature, 1, '°C'));
+    set('humidity', value(state.humidity, 1, '%'));
+    set('light', value(state.light, 0, 'lx'));
+    set('temperature-status', '温湿度从站 ' + (state.temperature_online ? '在线' : '离线'));
+    set('light-status', '光照从站 ' + (state.light_online ? '在线' : '离线'));
+    set('mqtt', 'MQTT ' + (state.mqtt ? '在线' : '离线'));
+    set('pending', '待发送 ' + pending + ' 条');
+    set('uptime', '运行 ' + (state.started_at == null ? '—' :
+      duration(Math.max(0, Math.floor(Date.now() / 1000) - state.started_at))));
+    set('updated', state.updated_at == null ? '等待采样' :
+      '轮询 ' + new Date(state.updated_at * 1000).toLocaleTimeString());
+    byId('logs').replaceChildren(...logs.map(({ts, level, message}) => {
+      const row = document.createElement('li');
+      row.textContent = new Date(ts * 1000).toLocaleString() + '  [' + level + '] ' + message;
+      return row;
+    }));
+  } catch {
+    set('mqtt', '网关数据暂不可用');
+  } finally {
+    if (Date.now() - lastActivity >= 10000) sleep.hidden = false;
+    setTimeout(refresh, 1000);
+  }
+}
+refresh();
+</script>
+</body>
+</html>
