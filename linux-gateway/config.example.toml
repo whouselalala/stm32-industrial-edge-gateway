@@ -1,0 +1,38 @@
+[gateway]
+# 采集周期（秒）。串口轮询超出周期时，从上一轮完成后再开始。
+interval = 2.0
+# 支持绝对路径；相对路径以当前工作目录为基准。
+database = "gateway.sqlite3"
+# 队列满时保留已入队数据，新样本会被拒绝并计数。
+queue_limit = 100000
+# 监控仅监听 127.0.0.1。设为 0 可关闭 HTTP。
+monitor_port = 8080
+
+[serial]
+# 上板后优先填 /dev/serial/by-id/...，避免 USB 重插时设备号变化。
+device = "/dev/ttyUSB0"
+baud = 9600
+# 单次 Modbus 事务总超时（秒）。
+timeout = 0.5
+# 自动收发 USB-RS485 转换器设 false；驱动支持 TIOCSRS485 的板载串口可设 true。
+kernel_rs485 = false
+
+[sensors]
+# 功能码固定 0x03，每个从站读取两个保持寄存器。地址为 PDU 零基地址。
+th_address = 1
+th_register = 1
+light_address = 2
+light_register = 2
+# 按原固件使用无符号温度；传感器手册规定有符号 int16 时启用。
+signed_temperature = false
+
+[mqtt]
+host = "127.0.0.1"
+port = 1883
+topic = "edge-gateway/telemetry"
+# 同一 broker 上的各网关使用不同的 client_id。
+client_id = "linux-edge-gateway"
+# 启用 TLS 时使用系统 CA 或下方自定义 CA。密码从环境变量读取。
+tls = false
+# ca_file = "/etc/ssl/certs/my-broker-ca.pem"
+# username = "gateway"
